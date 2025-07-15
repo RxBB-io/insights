@@ -22,7 +22,7 @@ import NumberChart from './NumberChart.vue'
 import TableChart from './TableChart.vue'
 import { FilterArgs } from '../../types/query.types'
 
-const props = defineProps<{ chart: Chart ,dashboardAdhocFilters?: FilterArgs[]}>()
+const props = defineProps<{ chart: Chart ,dashboardAdhocFilters?:  {}}>()
 
 const chart_type = computed(() => props.chart.doc.chart_type)
 const config = computed(() => props.chart.doc.config)
