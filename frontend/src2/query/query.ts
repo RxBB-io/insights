@@ -573,10 +573,10 @@ export function makeQuery(name: string) {
 			})
 	}
 
-	function getDrillDownQuery(col: QueryResultColumn, row: QueryResultRow) {
-		if (!session.isLoggedIn) {
-			return
-		}
+function getDrillDownQuery(col: QueryResultColumn, row: QueryResultRow, adhocFilters?: FilterArgs[]) {
+	if (!session.isLoggedIn) {
+		return
+	}
 
 		const error = validateDrillDown(col, row)
 		if (error) {
@@ -587,7 +587,6 @@ export function makeQuery(name: string) {
 			})
 			return
 		}
-
 		const operations = copy(query.doc.operations)
 		const reversedOperations = operations.slice().reverse()
 
@@ -615,9 +614,24 @@ export function makeQuery(name: string) {
 		}
 
 		drill_down_query.setOperations(operations.slice(0, sliceIdx))
+
+		const dashboardFilter = ref<any>()
+
+		if (adhocFilters) {
+			dashboardFilter.value = Object.values(adhocFilters)
+				.map(obj => obj.filters)
+				.filter(Boolean)
+				.flat();
+		}
+		
+		const allFilters = [...filters]
+		if (dashboardFilter.value) {
+			allFilters.push(...dashboardFilter.value)
+		}
+
 		drill_down_query.addFilterGroup({
 			logical_operator: 'And',
-			filters: filters,
+			filters: allFilters
 		})
 
 		return drill_down_query

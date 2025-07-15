@@ -20,8 +20,9 @@ import BaseChart from './BaseChart.vue'
 import DrillDown from './DrillDown.vue'
 import NumberChart from './NumberChart.vue'
 import TableChart from './TableChart.vue'
+import { FilterArgs } from '../../types/query.types'
 
-const props = defineProps<{ chart: Chart }>()
+const props = defineProps<{ chart: Chart ,dashboardAdhocFilters?: FilterArgs[]}>()
 
 const chart_type = computed(() => props.chart.doc.chart_type)
 const config = computed(() => props.chart.doc.config)
@@ -62,7 +63,7 @@ function onChartElementClick(params: any) {
 		}
 		const row = result.value.formattedRows[dataIndex]
 		const column = result.value.columns.find((c) => c.name === params.seriesName)!
-		drillDownQuery.value = props.chart.dataQuery.getDrillDownQuery(column, row)
+		drillDownQuery.value = props.chart.dataQuery.getDrillDownQuery(column, row,props!.dashboardAdhocFilters)
 	}
 	if (drillDownQuery.value) {
 		showDrillDown.value = true
@@ -70,7 +71,7 @@ function onChartElementClick(params: any) {
 }
 
 function onNumberChartDrillDown(column: any, row: any) {
-	drillDownQuery.value = props.chart.dataQuery.getDrillDownQuery(column, row)
+	drillDownQuery.value = props.chart.dataQuery.getDrillDownQuery(column, row,props!.dashboardAdhocFilters)
 	if (drillDownQuery.value) {
 		showDrillDown.value = true
 	}
@@ -107,7 +108,7 @@ function onNumberChartDrillDown(column: any, row: any) {
 			</template>
 		</div>
 	</div>
-
+<!-- can add adhoc options here -->
 	<DrillDown
 		v-if="drillDownQuery"
 		v-model="showDrillDown"

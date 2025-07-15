@@ -50,7 +50,7 @@ wheneverChanges(
 </script>
 
 <template>
-	<ChartRenderer v-if="chart" :chart="chart" />
+	<ChartRenderer v-if="chart" :chart="chart" :dashboardAdhocFilters="dashboard.adhocFilters" />
 
 	<div v-else class="flex h-full flex-1 flex-col items-center justify-center rounded border">
 		<AlertTriangle class="h-8 w-8 text-gray-500" stroke-width="1" />
@@ -75,7 +75,7 @@ wheneverChanges(
 	>
 		<template #body>
 			<div class="h-[75vh] w-full">
-				<ChartRenderer v-if="chart" :chart="chart" />
+				<ChartRenderer v-if="chart" :chart="chart" :dashboardAdhocFilters="dashboard.adhocFilters" />
 			</div>
 		</template>
 	</Dialog>
