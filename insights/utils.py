@@ -202,6 +202,7 @@ class InsightsPageRenderer(TemplatePage):
         embed_urls = [
             "/insights_v2/public",
             "/insights/public",
+
             "/insights/shared",
         ]
         if not any(path.startswith(url) for url in embed_urls):
@@ -214,9 +215,13 @@ class InsightsPageRenderer(TemplatePage):
         return super().render()
 
     def set_headers(self):
+
         allowed_origins = frappe.db.get_single_value(
             "Insights Settings", "allowed_origins"
         )
+
+        allowed_origins = frappe.db.get_single_value("Insights Settings", "allowed_origins")
+
         if not allowed_origins:
             return
 
@@ -224,6 +229,10 @@ class InsightsPageRenderer(TemplatePage):
         allowed_origins = allowed_origins.split(",") if allowed_origins else []
         allowed_origins = [origin.strip() for origin in allowed_origins]
         allowed_origins = " ".join(allowed_origins)
+
         self.headers[
             "Content-Security-Policy"
         ] = f"frame-ancestors 'self' {allowed_origins}"
+
+        self.headers["Content-Security-Policy"] = f"frame-ancestors 'self' {allowed_origins}"
+

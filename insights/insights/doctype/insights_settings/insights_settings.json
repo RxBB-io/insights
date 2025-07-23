@@ -25,7 +25,16 @@
   "allow_subquery",
   "auto_execute_query",
   "query_result_expiry",
+
   "query_result_limit"
+  "query_result_limit",
+  "is_subscribed",
+  "allowed_origins",
+  "integrations_section",
+  "telegram_api_token",
+  "query_section",
+  "fiscal_year_start"
+
  ],
  "fields": [
   {
@@ -99,6 +108,7 @@
    "fieldname": "allowed_origins",
    "fieldtype": "Data",
    "label": "Allowed Origins"
+
   },
   {
    "fieldname": "max_records_to_sync",
@@ -145,6 +155,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
+
  "modified": "2025-01-14 13:17:25.798141",
  "modified_by": "Administrator",
  "module": "Insights",
