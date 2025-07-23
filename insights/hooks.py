@@ -2,7 +2,7 @@ app_name = "insights"
 app_title = "Frappe Insights"
 app_publisher = "Frappe Technologies Pvt. Ltd."
 app_description = "Powerful Reporting Tool for Frappe Apps"
-app_icon = "octicon octicon-file-directory"
+app_icon = "/assets/insights/frontend/RxBB-Reach-Logo.svg"
 app_color = "grey"
 app_email = "hello@frappe.io"
 app_license = "GNU GPLv3"
@@ -13,7 +13,7 @@ export_python_type_annotations = True
 add_to_apps_screen = [
     {
         "name": "insights",
-        "logo": "/assets/insights/frontend/insights-logo.png",
+        "logo": "/assets/insights/frontend/RxBB-Reach-Logo.svg",
         "title": "Insights",
         "route": "/insights",
         "has_permission": "insights.permissions.check_app_permission",
