@@ -26,7 +26,7 @@
   "auto_execute_query",
   "query_result_expiry",
 
-  "query_result_limit"
+  "query_result_limit",
   "query_result_limit",
   "is_subscribed",
   "allowed_origins",
