@@ -1,13 +1,25 @@
-from . import __version__ as app_version
-
 app_name = "insights"
 app_title = "Frappe Insights"
 app_publisher = "Frappe Technologies Pvt. Ltd."
 app_description = "Powerful Reporting Tool for Frappe Apps"
-app_icon = "octicon octicon-file-directory"
+app_icon = "/assets/insights/frontend/RxBB-Reach-Logo.svg"
 app_color = "grey"
 app_email = "hello@frappe.io"
 app_license = "GNU GPLv3"
+
+export_python_type_annotations = True
+
+
+add_to_apps_screen = [
+    {
+        "name": "insights",
+        "logo": "/assets/insights/frontend/RxBB-Reach-Logo.svg",
+        "title": "Insights",
+        "route": "/insights",
+        "has_permission": "insights.permissions.check_app_permission",
+    }
+]
+
 
 # Includes in <head>
 # ------------------
@@ -71,14 +83,21 @@ setup_wizard_stages = "insights.setup.setup_wizard.get_setup_stages"
 # ------------
 
 # before_install = "insights.install.before_install"
-# after_install = "insights.setup.after_install"
-# after_migrate = ["insights.migrate.after_migrate"]
+after_install = "insights.migrate.after_migrate"
+after_migrate = "insights.migrate.after_migrate"
+
+before_request = ["insights.insights.doctype.insights_data_source_v3.insights_data_source_v3.before_request"]
+after_request = ["insights.insights.doctype.insights_data_source_v3.insights_data_source_v3.after_request"]
 
 fixtures = [
     {
         "dt": "Insights Data Source",
         "filters": {"name": ("in", ["Site DB", "Query Store"])},
-    }
+    },
+    {
+        "dt": "Insights Data Source v3",
+        "filters": {"name": "Site DB"},
+    },
 ]
 
 # Uninstallation
@@ -97,15 +116,26 @@ fixtures = [
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
+permission_query_conditions = {
+    "Insights Data Source v3": "insights.permissions.get_permission_query_conditions",
+    "Insights Table v3": "insights.permissions.get_permission_query_conditions",
+    "Insights Team": "insights.permissions.get_permission_query_conditions",
+    "Insights Workbook": "insights.permissions.get_permission_query_conditions",
+    "Insights Query v3": "insights.permissions.get_permission_query_conditions",
+    "Insights Chart v3": "insights.permissions.get_permission_query_conditions",
+    "Insights Dashboard v3": "insights.permissions.get_permission_query_conditions",
+    "Insights Alert": "insights.permissions.get_permission_query_conditions",
+}
+
 has_permission = {
-    "Insights Data Source": "insights.overrides.has_permission",
-    "Insights Table": "insights.overrides.has_permission",
-    "Insights Query": "insights.overrides.has_permission",
-    "Insights Dashboard": "insights.overrides.has_permission",
+    "Insights Data Source v3": "insights.permissions.has_doc_permission",
+    "Insights Table v3": "insights.permissions.has_doc_permission",
+    "Insights Team": "insights.permissions.has_doc_permission",
+    "Insights Workbook": "insights.permissions.has_doc_permission",
+    "Insights Query v3": "insights.permissions.has_doc_permission",
+    "Insights Chart v3": "insights.permissions.has_doc_permission",
+    "Insights Dashboard v3": "insights.permissions.has_doc_permission",
+    "Insights Alert": "insights.permissions.has_doc_permission",
 }
 
 # DocType Class
@@ -120,18 +150,26 @@ has_permission = {
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "User": {
+        "on_change": "insights.insights.doctype.insights_team.insights_team.update_admin_team",
+    }
+}
 
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"all": ["insights.insights.doctype.insights_alert.insights_alert.send_alerts"]}
+scheduler_events = {
+    "all": [
+        "insights.insights.doctype.insights_alert.insights_alert.send_alerts",
+    ],
+    "daily": [
+        "insights.api.data_store.sync_tables",
+    ],
+    "hourly": [
+        "insights.api.data_store.update_failed_sync_status",
+    ],
+}
 
 # Testing
 # -------
@@ -192,4 +230,5 @@ page_renderer = "insights.utils.InsightsPageRenderer"
 
 website_route_rules = [
     {"from_route": "/insights/<path:app_path>", "to_route": "insights"},
+    {"from_route": "/insights_v2/<path:app_path>", "to_route": "insights_v2"},
 ]

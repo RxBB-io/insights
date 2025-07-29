@@ -8,7 +8,6 @@ from insights.insights.doctype.insights_query.insights_query import InsightsQuer
 
 def before_tests():
     delete_all_records()
-    create_query_store()
     create_site_db()
     create_sqlite_db()
     complete_setup_wizard()
@@ -19,7 +18,7 @@ def complete_setup_wizard():
     frappe.clear_cache()
     from frappe.desk.page.setup_wizard.setup_wizard import setup_complete
 
-    if not frappe.db.get_single_value("System Settings", "setup_complete"):
+    if not frappe.is_setup_complete():
         setup_complete(
             {
                 "language": "English",
