@@ -29,6 +29,6 @@ def get_mariadb_connection(data_source):
         database=data_source.database_name,
         charset="utf8mb4",
         use_unicode=True,
-        ssl_mode="VERIFY_CA" if data_source.use_ssl else "DISABLED",
+        ssl_mode="REQUIRED" if data_source.use_ssl else "DISABLED",
         connect_timeout=5,
     )
