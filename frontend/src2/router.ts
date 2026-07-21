@@ -138,6 +138,12 @@ router.beforeEach(async (to, _, next) => {
 		return next(false)
 	}
 
+	// restricted users only get dashboard views; server-side permissions remain the real gate
+	const restrictedAllowedRoutes = ['Home', 'DashboardList', 'Dashboard', 'SharedDashboard', 'SharedChart']
+	if (session.user.is_restricted && !restrictedAllowedRoutes.includes(String(to.name))) {
+		return next('/dashboards')
+	}
+
 	to.path === '/login' ? next('/') : next()
 })
 

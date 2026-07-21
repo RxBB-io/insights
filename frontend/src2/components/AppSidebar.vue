@@ -56,6 +56,7 @@ import {
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import useSettings from '../settings/settings'
+import session from '../session'
 import Settings from '../settings/Settings.vue'
 import SidebarLink from './SidebarLink.vue'
 import DemoDataBanner from './DemoDataBanner.vue'
@@ -79,22 +80,25 @@ const links = ref([
 		label: __('Workbooks'),
 		icon: Book,
 		to: 'WorkbookList',
+		hidden: computed(() => session.user.is_restricted),
 	},
 	{
 		label: __('Data Sources'),
 		icon: Database,
 		to: 'DataSourceList',
+		hidden: computed(() => session.user.is_restricted),
 	},
 	{
 		label: __('Data Store'),
 		icon: DatabaseZap,
 		to: 'DataStoreList',
-		hidden: computed(() => !settings.doc.enable_data_store),
+		hidden: computed(() => !settings.doc.enable_data_store || session.user.is_restricted),
 	},
 	{
 		label: __('Settings'),
 		icon: SettingsIcon,
 		onClick: () => (showSettingsDialog.value = true),
+		hidden: computed(() => session.user.is_restricted),
 	},
 ])
 </script>
