@@ -25,7 +25,7 @@
 								: 'ml-2 w-auto opacity-100'
 						"
 					>
-						<div class="text-base font-medium leading-none text-gray-900">Insights</div>
+						<div class="text-base font-medium leading-none text-gray-900">RxBB Insights</div>
 						<div class="mt-1 text-sm leading-none text-gray-700">
 							{{
 								session.user.full_name == 'Administrator'

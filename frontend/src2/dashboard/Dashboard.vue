@@ -26,7 +26,7 @@ function openWorkbook() {
 }
 await waitUntil(() => dashboard.isloaded)
 
-document.title = `${dashboard.doc.title} | Insights`
+document.title = `${dashboard.doc.title} | RxBB Insights`
 
 const canOpenWorkbook = ref(dashboard.doc.has_workbook_access)
 

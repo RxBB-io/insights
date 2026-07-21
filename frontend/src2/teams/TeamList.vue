@@ -75,7 +75,7 @@ const showCreateTeamDialog = ref(false)
 const showEditTeamDialog = ref(false)
 const editTeam = ref<Team | null>(null)
 
-document.title = 'Teams | Insights'
+document.title = 'Teams | RxBB Insights'
 </script>
 
 <template>

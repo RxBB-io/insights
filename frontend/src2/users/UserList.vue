@@ -138,7 +138,7 @@ function sendInvitation() {
 	showInviteUserDialog.value = false
 }
 
-document.title = 'Users | Insights'
+document.title = 'Users | RxBB Insights'
 </script>
 
 <template>

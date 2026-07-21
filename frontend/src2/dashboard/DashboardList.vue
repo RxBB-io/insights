@@ -130,7 +130,7 @@ const toggleFavorite = (dashboard: DashboardListItem) => {
 }
 
 watchEffect(() => {
-	document.title = 'Dashboards | Insights'
+	document.title = 'Dashboards | RxBB Insights'
 })
 </script>
 

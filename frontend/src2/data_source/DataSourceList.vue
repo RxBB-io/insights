@@ -138,7 +138,7 @@ const listOptions = ref({
 	},
 })
 
-document.title = __('Data Sources | Insights')
+document.title = __('Data Sources | RxBB Insights')
 </script>
 
 <template>
