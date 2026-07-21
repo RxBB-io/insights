@@ -39,6 +39,15 @@ def get_user_info():
 
     locale = user.get("language") or frappe.db.get_single_value("System Settings", "language") or "en"
 
+    from insights.insights.doctype.insights_team.insights_team import is_admin as is_effective_admin
+
+    is_restricted = False
+    if frappe.db.has_column("User", "insights_restricted_user"):
+        is_restricted = bool(
+            frappe.db.get_value("User", frappe.session.user, "insights_restricted_user")
+        )
+    is_restricted = is_restricted and not is_effective_admin(frappe.session.user)
+
     has_demo_data = False
     if is_admin:
         from insights.setup.setup_wizard import check_demo_data_exists
@@ -51,6 +60,7 @@ def get_user_info():
         "last_name": user.get("last_name"),
         "is_admin": is_admin,
         "is_user": is_user or frappe.session.user == "Administrator",
+        "is_restricted": is_restricted,
         "can_download": is_admin or bool(frappe.db.get_single_value("Insights Settings", "allow_download")),
         # TODO: move to `get_session_info` since not user specific
         "country": frappe.db.get_single_value("System Settings", "country"),
