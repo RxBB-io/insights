@@ -297,6 +297,9 @@ class InsightsQueryv3(Document):
             reference_doctype=self.doctype,
             reference_name=self.name,
         )
+        # an empty result set can come back without the selected column, so guard it
+        if column_name not in result.columns:
+            return []
         return result[column_name].tolist()
 
     @insights_whitelist()
