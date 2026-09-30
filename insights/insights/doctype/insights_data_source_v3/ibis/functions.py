@@ -302,7 +302,7 @@ def if_else(condition: ir.BooleanValue, true_value: ir.Value, false_value: ir.Va
     Examples:
     - if_else(status == 'Active', 1, 0)
     """
-    return ibis.case().when(condition, true_value).else_(false_value).end()
+    return ibis.cases((condition, true_value), else_=false_value)
 
 
 def case(condition: ir.BooleanValue, value: ir.Value, *args: tuple[ir.BooleanValue, ir.Value]):
@@ -315,14 +315,14 @@ def case(condition: ir.BooleanValue, value: ir.Value, *args: tuple[ir.BooleanVal
     - case(age > 18, 'Eligible', 'Not Eligible')
     - case(age > 30, 'Above 30', age > 20, 'Above 20')
     """
-    case = ibis.case().when(condition, value)
+    branches = [(condition, value)]
     for i in range(0, len(args) - 1, 2):
-        case = case.when(args[i], args[i + 1])
+        branches.append((args[i], args[i + 1]))
 
     if len(args) % 2 == 1:
-        return case.else_(args[-1]).end()
+        return ibis.cases(*branches, else_=args[-1])
     else:
-        return case.end()
+        return ibis.cases(*branches)
 
 
 # number Functions
@@ -687,7 +687,7 @@ def date_diff(column: ir.DateValue, other: ir.DateValue, unit: str = "day"):
     if not other.type().is_date():
         other = other.cast("date")
 
-    return column.delta(other, unit)
+    return column.delta(other, unit=unit)
 
 
 def time_diff(
@@ -710,7 +710,7 @@ def time_diff(
     if not other.type().is_time():
         other = other.cast("time")
 
-    return column.delta(other, unit)
+    return column.delta(other, unit=unit)
 
 
 def date_add(column: ir.DateValue, value: int, unit: str):
@@ -1055,14 +1055,14 @@ def create_buckets(column: ir.Column, num_buckets: int):
     for i in range(0, len(values), bucket_size):
         buckets.append(values[i : i + bucket_size])
 
-    case = ibis.case()
+    branches = []
     for bucket in buckets:
         min_val = bucket[0]
         max_val = bucket[-1]
         label = f"{min_val}-{max_val}"
-        case = case.when(is_in(column, *bucket), label)
+        branches.append((is_in(column, *bucket), label))
 
-    return case.else_(None).end()
+    return ibis.cases(*branches, else_=None)
 
 
 def week_start(column: ir.DateValue):
@@ -1088,7 +1088,7 @@ def week_start(column: ir.DateValue):
     week_starts_on = days.index(week_start_day)
     day_of_week = column.day_of_week.index().cast("int32")
     adjusted_week_start = (day_of_week - week_starts_on + 7) % 7
-    week_start = column - adjusted_week_start.as_interval(unit="D")
+    week_start = column - adjusted_week_start.as_interval("D")
     return week_start
 
 
@@ -1198,7 +1198,7 @@ def get_retention_data(date_column: ir.DateValue, id_column: ir.Column, unit: st
 
     query = query.mutate(cohort_size=id_column.nunique().over(group_by=query.cohort_start))
 
-    query = query.mutate(offset=date_column.delta(query.cohort_start, unit))
+    query = query.mutate(offset=date_column.delta(query.cohort_start, unit=unit))
 
     zero_padded_offset = (query.offset < 10).ifelse(
         literal("0").concat(query.offset.cast("string")), query.offset.cast("string")

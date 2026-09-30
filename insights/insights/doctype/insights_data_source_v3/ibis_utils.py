@@ -24,8 +24,11 @@ from insights.insights.query_builders.sql_functions import handle_timespan
 from insights.utils import create_execution_log
 from insights.utils import deep_convert_dict_to_dict as _dict
 
+from .ibis.compat import patch_duplicate_ctes
 from .ibis.functions import quarter_start, week_start
 from .ibis.utils import get_functions
+
+patch_duplicate_ctes()
 
 
 class IbisQueryBuilder:
@@ -624,6 +627,10 @@ def execute_ibis_query(
     create_execution_log(sql, time_taken, reference_name)
 
     if isinstance(result, pd.DataFrame):
+        # ibis 10+ returns date columns as timestamps; keep serializing them as plain dates
+        for column, dtype in query.schema().items():
+            if dtype.is_date() and pd.api.types.is_datetime64_any_dtype(result.get(column)):
+                result[column] = result[column].dt.date
         result = result.replace({pd.NaT: None, np.nan: None})
         if cache:
             cache_results(cache_key, result, cache_expiry)
