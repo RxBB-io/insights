@@ -1,5 +1,4 @@
 import ast
-import re
 import time
 from contextlib import contextmanager
 from datetime import date
@@ -30,6 +29,7 @@ from insights.insights.query_utils import extract_sql_table_refs
 from insights.utils import create_execution_log
 from insights.utils import deep_convert_dict_to_dict as _dict
 
+from .ibis.compat import patch_duplicate_ctes
 from .ibis.functions import fiscal_year_start, week_start
 from .ibis.utils import get_functions
 
@@ -42,6 +42,9 @@ except ImportError:
             return func
 
         return decorator
+
+
+patch_duplicate_ctes()
 
 
 class CircularQueryReferenceError(frappe.ValidationError):
@@ -590,12 +593,12 @@ class IbisQueryBuilder:
             "Insights Settings", "enable_permissions"
         ) or frappe.db.get_single_value("Insights Settings", "apply_user_permissions")
 
+        # the data store reads DuckDB, so from the transpile on, that is the dialect
+        # this query is written in
+        target_dialect = source_dialect if self.use_live_connection else "duckdb"
+
         if check_permissions or not self.use_live_connection:
-            tables = self._get_sql_table_names(
-                raw_sql,
-                dialect=source_dialect,
-                use_live_connection=self.use_live_connection,
-            )
+            tables = self._get_sql_table_names(raw_sql, dialect=source_dialect)
             replace_map = self._get_sql_table_bindings(
                 data_source,
                 tables,
@@ -607,7 +610,7 @@ class IbisQueryBuilder:
             if not self.use_live_connection:
                 raw_sql = self._transpile_sql_to_duckdb(raw_sql, source_dialect)
 
-            raw_sql = self._prepend_sql_with_clauses(raw_sql, replace_map)
+            raw_sql = self._replace_sql_tables(raw_sql, replace_map, dialect=target_dialect)
 
         supports_stored_procedure = ds.database_type in ["PostgreSQL", "MSSQL", "MariaDB"]
         if (
@@ -641,14 +644,17 @@ class IbisQueryBuilder:
     def _validate_native_sql(self, raw_sql: str, use_live_connection: bool) -> str:
         raw_sql = raw_sql.strip()
 
-        if not use_live_connection:
-            statements = [stmt for stmt in sqlparse.parse(raw_sql) if stmt.tokens and stmt.value.strip()]
-            if len(statements) > 1:
-                frappe.throw(
-                    "Multiple SQL statements are not supported with Data Store for native queries",
-                    title="Unsupported SQL Query",
-                )
+        # one statement, on every path: ibis cannot run two — `db.sql` on a pair
+        # fails while it reads the schema — and both rewrites below read the first
+        # statement only, so a second one would be dropped rather than refused
+        statements = [stmt for stmt in sqlparse.parse(raw_sql) if stmt.tokens and stmt.value.strip()]
+        if len(statements) > 1:
+            frappe.throw(
+                frappe._("Multiple SQL statements are not supported for native queries"),
+                title=frappe._("Unsupported SQL Query"),
+            )
 
+        if not use_live_connection:
             if raw_sql.lower().startswith("exec"):
                 frappe.throw(
                     "Stored procedures are not supported with Data Store for native queries",
@@ -677,18 +683,15 @@ class IbisQueryBuilder:
 
         return transpiled_sql[0]
 
-    def _get_sql_table_names(
-        self,
-        raw_sql: str,
-        dialect: sg.Dialect | None,
-        use_live_connection: bool,
-    ) -> set[str]:
+    def _get_sql_table_names(self, raw_sql: str, dialect: sg.Dialect | None) -> set[str]:
         tables = set()
         for table_ref in extract_sql_table_refs(raw_sql, dialect=dialect):
-            if not use_live_connection and (table_ref.db or table_ref.catalog):
+            # a binding is looked up by the bare name, so a qualified reference would
+            # bind the same-named table in the default schema — a different table
+            if table_ref.db or table_ref.catalog:
                 frappe.throw(
-                    "Schema-qualified table names are not supported with Data Store for native queries yet",
-                    title="Unsupported SQL Query",
+                    frappe._("Schema-qualified table names are not supported for native queries yet"),
+                    title=frappe._("Unsupported SQL Query"),
                 )
 
             tables.add(table_ref.name)
@@ -724,27 +727,40 @@ class IbisQueryBuilder:
 
         return replace_map
 
-    def _prepend_sql_with_clauses(self, raw_sql: str, replace_map: dict[str, str]) -> str:
+    def _replace_sql_tables(
+        self,
+        raw_sql: str,
+        replace_map: dict[str, str],
+        dialect: sg.Dialect | None,
+    ) -> str:
+        """Swap every reference to a bound table for its permission-filtered select.
+
+        Prepending one CTE per table is shorter, but then the CTE name is the
+        collision surface. MariaDB matches CTE names case-insensitively, so a query
+        that reads `tabTask` in one place and `tabtask` in another asks for two CTEs
+        that MariaDB reads as one, and it refuses the pair. Replacing the reference
+        itself needs no name, so no spelling can collide.
+        """
         if not replace_map:
             return raw_sql
 
-        with_clauses = []
-        for table_name, table_sql in replace_map.items():
-            quoted_table_name = sg.to_identifier(table_name)
-            with_clauses.append(f"{quoted_table_name} AS ({table_sql})")
+        parsed = sg.parse_one(raw_sql, dialect=dialect)
 
-        with_clause_sql = ", ".join(with_clauses)
-        raw_sql_stripped = raw_sql.strip()
-        if raw_sql_stripped.lower().startswith("with"):
-            return re.sub(
-                r"(\bwith\b)",
-                f"WITH {with_clause_sql},",
-                raw_sql_stripped,
-                count=1,
-                flags=re.IGNORECASE,
-            )
+        # collect first: the replacements carry their own table references, and
+        # re-reading them would replace a table inside its own binding
+        for table_exp in list(parsed.find_all(sg.exp.Table)):
+            table_sql = replace_map.get(table_exp.name)
+            if table_sql is None:
+                continue
 
-        return f"WITH {with_clause_sql} {raw_sql_stripped}"
+            # an unaliased reference keeps the table name as its alias, so a
+            # qualified column such as `tabTask`.name still resolves
+            alias = table_exp.args.get("alias") or sg.exp.TableAlias(this=table_exp.this.copy())
+            subquery = sg.parse_one(table_sql, dialect=dialect).subquery()
+            subquery.set("alias", alias)
+            table_exp.replace(subquery)
+
+        return parsed.sql(dialect=dialect)
 
     def apply_code(self, code_args):
         code = code_args.code
