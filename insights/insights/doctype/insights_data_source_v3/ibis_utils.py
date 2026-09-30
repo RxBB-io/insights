@@ -29,6 +29,7 @@ from insights.insights.query_utils import extract_sql_table_refs
 from insights.utils import create_execution_log
 from insights.utils import deep_convert_dict_to_dict as _dict
 
+from .ibis.compat import patch_duplicate_ctes
 from .ibis.functions import fiscal_year_start, week_start
 from .ibis.utils import get_functions
 
@@ -43,8 +44,7 @@ except ImportError:
         return decorator
 
 
-# the alias a native SQL query is nested under before ibis sees it
-NATIVE_SQL_RELATION = "_insights_native_sql"
+patch_duplicate_ctes()
 
 
 class CircularQueryReferenceError(frappe.ValidationError):
@@ -631,7 +631,7 @@ class IbisQueryBuilder:
             results = ibis.memtable(df)
 
         elif raw_sql.strip().lower().startswith(("select", "with")):
-            results = db.sql(self._hide_ctes_from_ibis(raw_sql, dialect=target_dialect))
+            results = db.sql(raw_sql)
 
         else:
             frappe.throw(
@@ -761,32 +761,6 @@ class IbisQueryBuilder:
             table_exp.replace(subquery)
 
         return parsed.sql(dialect=dialect)
-
-    def _hide_ctes_from_ibis(self, raw_sql: str, dialect: sg.Dialect | None) -> str:
-        """Nest a query that opens with `WITH`, so ibis is handed no top-level CTE.
-
-        ibis 11 clears a parsed statement's `WITH` clause with `args.pop("with")`
-        before re-attaching it. sqlglot 28 renamed that key to `with_`, so the clear
-        became a no-op and every CTE is written twice. MariaDB rejects the pair:
-        `(4004, 'Duplicate query name ... in WITH clause')`.
-
-        Dropping back below sqlglot 28 is not open to us — frappe needs 30. Nesting
-        the statement leaves the outer query with no CTE, so ibis re-attaches
-        nothing. ibis 12 no longer pops that key at all, so drop this when the
-        `ibis-framework` pin moves off 11.
-        """
-        try:
-            parsed = sg.parse_one(raw_sql, dialect=dialect)
-        except Exception:
-            # not ours to reject: let ibis fail on it the way it always has
-            return raw_sql
-
-        if not parsed.ctes:
-            return raw_sql
-
-        # nest what was parsed, not the text it came from: the text can carry a
-        # trailing semicolon, and that would land inside the brackets
-        return f"SELECT * FROM ({parsed.sql(dialect=dialect)}) AS {NATIVE_SQL_RELATION}"
 
     def apply_code(self, code_args):
         code = code_args.code

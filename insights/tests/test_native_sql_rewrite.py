@@ -80,8 +80,7 @@ class TestNativeSQL(InsightsIntegrationTestCase):
 
         self.assertEqual(len(rows), 1)
 
-    def test_a_trailing_semicolon_survives_the_nesting(self):
-        # the nesting brackets the query, and a semicolon inside them is a syntax error
+    def test_a_trailing_semicolon_is_accepted(self):
         rows = self.run_native_sql(
             "with recent as (select name from `tabUser` limit 1) select * from recent;"
         )
@@ -89,17 +88,24 @@ class TestNativeSQL(InsightsIntegrationTestCase):
         self.assertEqual(len(rows), 1)
 
     def test_a_rewritten_query_that_opens_with_a_cte_runs(self):
-        # the two rewrites meet here: the tables are replaced, then the result is nested
+        # the two rewrites meet here: the tables are replaced, then ibis compiles the result
         raw_sql = "with recent as (select name from `tabUser` limit 1) select * from recent"
         rewritten = self.rewrite(raw_sql, {"tabUser": "SELECT * FROM `tabUser`"})
 
-        rows = (
-            self.data_source._get_ibis_backend()
-            .sql(self.builder._hide_ctes_from_ibis(rewritten, dialect=self.dialect))
-            .execute()
-        )
+        rows = self.data_source._get_ibis_backend().sql(rewritten).execute()
 
         self.assertEqual(len(rows), 1)
+
+    def test_a_cte_query_keeps_its_order_under_a_limit(self):
+        # nested in a derived table, the query would lose its ORDER BY on MariaDB,
+        # and the limit would pick whichever rows came first
+        raw_sql = "with u as (select name from `tabUser`) select name from u order by name desc"
+        operations = [{"type": "sql", "data_source": SITE_DB, "raw_sql": raw_sql}]
+
+        rows = IbisQueryBuilder(self.make_query_doc(operations)).build().limit(2).execute()
+
+        expected = frappe.get_all("User", order_by="name desc", limit=2, pluck="name")
+        self.assertEqual(rows["name"].tolist(), expected)
 
     def test_more_than_one_statement_is_refused(self):
         # ibis runs one statement, and both rewrites read the first one only
