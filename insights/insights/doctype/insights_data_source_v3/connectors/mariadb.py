@@ -2,7 +2,9 @@
 # For license information, please see license.txt
 from urllib.parse import quote_plus
 
+import frappe
 import ibis
+from MySQLdb.constants import CLIENT
 
 
 def get_mariadb_connection_string(data_source):
@@ -21,7 +23,7 @@ def get_mariadb_connection_string(data_source):
 def get_mariadb_connection(data_source):
     password = data_source.get_password(raise_exception=False)
     data_source.port = int(data_source.port or 3306)
-    return ibis.mysql.connect(
+    db = ibis.mysql.connect(
         host=data_source.host,
         port=data_source.port,
         user=data_source.username,
@@ -29,6 +31,13 @@ def get_mariadb_connection(data_source):
         database=data_source.database_name,
         charset="utf8mb4",
         use_unicode=True,
-        ssl="true" if data_source.use_ssl else None,
-        ssl_verify_cert="true" if data_source.use_ssl else None,
+        ssl_mode="REQUIRED" if data_source.use_ssl else "DISABLED",
     )
+    # MariaDB Connector/C falls back to plaintext under ssl_mode=REQUIRED when the server offers no TLS
+    if data_source.use_ssl and not db.con.server_capabilities & CLIENT.SSL:
+        db.disconnect()
+        frappe.throw(
+            f"{data_source.host} does not accept SSL connections. "
+            "Disable Use SSL or enable SSL on the server."
+        )
+    return db
